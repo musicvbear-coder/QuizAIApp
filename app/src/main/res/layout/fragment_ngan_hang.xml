@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#131324"
+    android:padding="20dp">
+
+    <!-- Header quản lý ngân hàng câu hỏi -->
+    <LinearLayout
+        android:id="@+id/layoutBankHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ngân hàng câu hỏi"
+                android:textColor="@android:color/white"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Quản lý kho câu hỏi và dữ liệu trắc nghiệm"
+                android:textColor="#9CA3AF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnImportWord"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="📁 Import Word"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:backgroundTint="#7C3AED"
+            app:cornerRadius="10dp" />
+    </LinearLayout>
+
+    <!-- Thanh tìm kiếm câu hỏi -->
+    <EditText
+        android:id="@+id/edtSearchQuestion"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="@drawable/bg_edit_text_alpha"
+        android:textColorHint="#9CA3AF"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:paddingHorizontal="16dp"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/layoutBankHeader"
+        tools:ignore="SpeakableTextPresentCheck"
+        tools:text="" />
+
+    <!-- RecyclerView danh sách câu hỏi động -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewQuestionBank"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/edtSearchQuestion"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:itemCount="0"
+        tools:listitem="@layout/item_cau_hoi_ngan_hang" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

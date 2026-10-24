@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Nền tối hiện đại (Trùng tone màu #131324 của app) -->
+    <path
+        android:fillColor="#131324"
+        android:pathData="M0,0h108v108h-108z"/>
+
+    <!-- Vòng tròn hiệu ứng mờ phía sau tạo chiều sâu -->
+    <path
+        android:fillColor="#7C3AED"
+        android:fillAlpha="0.15"
+        android:pathData="M54,12C79.4,12 100,32.6 100,58C100,83.4 79.4,104 54,104C28.6,104 8,83.4 8,58C8,32.6 28.6,12 54,12Z"/>
+</vector>
