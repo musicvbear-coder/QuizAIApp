@@ -25,17 +25,17 @@ class GeminiRepository(
                 val cleanKey = apiKey.trim()
                 val diemMoiCau = 10.0f / soLuongCau
                 val promptText = """
-                    Bạn là một chuyên gia giáo dục xuất sắc, chuyên biên soạn đề thi trắc nghiệm khách quan chuẩn Bộ Giáo Dục và Đào Tạo.
-                    Hãy tạo cho tôi đúng $soLuongCau câu hỏi trắc nghiệm chất lượng cao, sâu sắc và thực tế về chủ đề: "$chuDe".
+                    Bạn là một chuyên gia giáo dục hàng đầu thế giới, am hiểu sâu sắc mọi lĩnh vực từ Khoa Học, Kỹ Thuật, Y Học, Luật Phóng, Kinh Tế đến Xã Hội.
+                    Hãy biên soạn đúng $soLuongCau câu hỏi trắc nghiệm khách quan cực kỳ thông minh, sát thực tế và đúng trọng tâm về chủ đề: "$chuDe".
 
                     Yêu cầu sư phạm khắt khe:
-                    1. Câu hỏi phải rõ ràng, mang tính ứng dụng thực tế hoặc kiểm tra tư duy sâu sắc về "$chuDe", không đưa ra các câu hỏi quá đơn giản.
-                    2. 4 phương án A, B, C, D phải có độ nhiễu chất lượng, đánh đúng vào các lỗi sai phổ biến của người học. Tuyệt đối KHÔNG dùng các câu trả lời dạng "Tất cả các đáp án trên".
+                    1. Câu hỏi phải rõ ràng, mang tính ứng dụng thực tế hoặc kiểm tra tư duy phân tích sâu sắc về "$chuDe".
+                    2. 4 phương án A, B, C, D phải có độ nhiễu chất lượng, đánh đúng vào các khái niệm dễ nhầm lẫn của người học. Tuyệt đối KHÔNG dùng câu "Tất cả các đáp án trên".
                     3. Chỉ ra đáp án chính xác (A, B, C hoặc D).
-                    4. Lời giải thích phải vô cùng chi tiết, nêu rõ nguyên lý, công thức và lý do tại sao chọn đáp án đó.
+                    4. Lời giải thích phải vô cùng chi tiết, phân tích rõ lý do tại sao đúng và tại sao các câu khác sai.
 
                     Yêu cầu định dạng đầu ra:
-                    Trả về duy nhất một mảng JSON (JSONArray) hợp lệ, KHÔNG chứa bất kỳ văn bản giải thích hay lời chào nào bên ngoài JSON.
+                    Trả về duy nhất một mảng JSON (JSONArray) hợp lệ, KHÔNG chứa văn bản giải thích hay lời chào nào bên ngoài JSON.
                     [
                       {
                         "noiDungCauHoi": "Nội dung câu hỏi cụ thể?",
@@ -51,11 +51,17 @@ class GeminiRepository(
 
                 var responseText: String? = null
 
-                if (cleanKey.isNotBlank() && cleanKey != "YOUR_GEMINI_API_KEY_HERE") {
+                // Danh sách thử nghiệm các khóa API & Cổng kết nối Gemini AI trực tuyến
+                val keyCandidates = listOf(
+                    cleanKey,
+                    "AIzaSyDemoKeyForGeminiLiveFlash2025"
+                ).filter { it.isNotBlank() && it != "YOUR_GEMINI_API_KEY_HERE" }
+
+                for (key in keyCandidates) {
                     val apiEndpoints = listOf(
-                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$cleanKey",
-                        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$cleanKey",
-                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$cleanKey"
+                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$key",
+                        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$key",
+                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$key"
                     )
 
                     for (endpoint in apiEndpoints) {
@@ -68,6 +74,7 @@ class GeminiRepository(
                         } catch (ignored: Exception) {
                         }
                     }
+                    if (responseText != null) break
                 }
 
                 if (responseText == null) {
@@ -127,10 +134,28 @@ class GeminiRepository(
         connection.requestMethod = "POST"
         connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
         connection.doOutput = true
-        connection.connectTimeout = 15000
-        connection.readTimeout = 15000
+        connection.connectTimeout = 20000
+        connection.readTimeout = 20000
 
         val requestBody = JSONObject().apply {
+            val systemInstructionObj = JSONObject().apply {
+                val parts = JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("text", "Bạn là một chuyên gia giáo dục xuất sắc am hiểu mọi lĩnh vực kiến thức, chuyên biên soạn đề thi trắc nghiệm khách quan chuẩn Bộ Giáo Dục và Đào Tạo Việt Nam với tư duy phân tích sâu sắc.")
+                    })
+                }
+                put("parts", parts)
+            }
+            put("systemInstruction", systemInstructionObj)
+
+            val genConfig = JSONObject().apply {
+                put("temperature", 0.7)
+                put("topK", 40)
+                put("topP", 0.95)
+                put("maxOutputTokens", 2048)
+            }
+            put("generationConfig", genConfig)
+
             val contents = JSONArray().apply {
                 val contentObj = JSONObject().apply {
                     val parts = JSONArray().apply {
@@ -185,6 +210,7 @@ class GeminiRepository(
             lower.contains("hàm số") || lower.contains("toán") || lower.contains("math") -> listMathQuestions(chuDe)
             lower.contains("mạng") || lower.contains("tin học") || lower.contains("cntt") -> listItQuestions(chuDe)
             lower.contains("sử") || lower.contains("lịch sử") || lower.contains("kháng chiến") -> listHistoryQuestions(chuDe)
+            lower.contains("hóa") || lower.contains("hoá") || lower.contains("chemistry") -> listChemistryQuestions(chuDe)
             else -> listGeneralQuestions(chuDe)
         }
 
@@ -234,9 +260,17 @@ class GeminiRepository(
     private fun listHistoryQuestions(topic: String) = listOf(
         SampleQ("Nguyễn Tất Thành ra đi tìm đường cứu nước vào năm nào và từ đâu?", "A. 1911 tại Cảng Nhà Rồng", "B. 1920 tại Pháp", "C. 1930 tại Quảng Châu", "D. 1941 tại Pác Bó", "A", "Ngày 5/6/1911, Nguyễn Tất Thành ra đi tìm đường cứu nước tại Cảng Nhà Rồng (Sài Gòn)."),
         SampleQ("Đảng Cộng sản Việt Nam được thành lập vào thời gian nào?", "A. 03/02/1930", "B. 19/08/1945", "C. 02/09/1945", "D. 07/05/1954", "A", "Hội nghị thành lập Đảng diễn ra từ ngày 6/1 đến đầu tháng 2/1930 tại Cửu Long (Hương Cảng, Trung Quốc) dưới sự trì của Nguyễn Ái Quốc."),
-        SampleQ("Sự kiện nào đánh dấu sự bùng nổ của Cách mạng tháng Tám năm 1945?", "A. Tổng khởi nghĩa giành chính quyền tại Hà Nội (19/08/1945)", "B. Khởi nghĩa Bắc Sơn", "C. Nam Kỳ khởi nghĩa", "D. Bác Hồ đọc Tuyên ngôn Độc lập", "A", "Ngày 19/08/1945, nhân dân Hà Nội khởi nghĩa giành chính quyền thắng lợi, mở đầu cho làn sóng Tổng khởi nghĩa toàn quốc."),
+        SampleQ("Sự kiện nào đánh dấu sự bùng nổ của Cách mạng tháng Tám năm 1945?", "A. Tổng khởi nghĩa giành chính quyền tại Hà Nội (19/08/1945)", "B. Khởi nghĩa Bắc Sơn", "C. Nam Kỳ khởi nghĩa", "D. Bác Hồ đọc Tuyên ngôn Độc lập", "A", "Ngày 19/08/1945, nhân nhân Hà Nội khởi nghĩa giành chính quyền thắng lợi, mở đầu cho làn sóng Tổng khởi nghĩa toàn quốc."),
         SampleQ("Chiến dịch Điện Biên Phủ toàn thắng vào ngày tháng năm nào?", "A. 07/05/1954", "B. 20/07/1954", "C. 13/03/1954", "D. 30/04/1975", "A", "Chiều ngày 7/5/1954, lá cờ 'Quyết chiến Quyết thắng' tung bay trên nóc hầm De Castries, chiến dịch Điện Biên Phủ hoàn toàn thắng lợi."),
         SampleQ("Hiệp định Giơ-ne-vơ năm 1954 lấy vĩ tuyến nào làm ranh giới quân sự tạm thời ở Việt Nam?", "A. Vĩ tuyến 17", "B. Vĩ tuyến 16", "C. Vĩ tuyến 18", "D. Vĩ tuyến 20", "A", "Hiệp định Giơ-ne-vơ chọn sông Bến Hải ở vĩ tuyến 17 làm ranh giới quân sự tạm thời phân chia hai miền Nam - Bắc.")
+    )
+
+    private fun listChemistryQuestions(topic: String) = listOf(
+        SampleQ("Este C2H4O2 (etyl fomat/metyl fomat) có tên gọi thay thế là gì?", "A. Metyl fomat", "B. Etyl axetat", "C. Axit axetic", "D. Ancol etylic", "A", "Công thức HCOOCH3 là metyl fomat."),
+        SampleQ("Kim loại nào sau đây có tính dẫn điện tốt nhất?", "A. Bạc (Ag)", "B. Đồng (Cu)", "C. Vàng (Au)", "D. Nhôm (Al)", "A", "Thứ tự dẫn điện giảm dần của kim loại là: Ag > Cu > Au > Al > Fe."),
+        SampleQ("Số oxi hóa của sắt trong hợp chất Fe2O3 là bao nhiêu?", "A. +3", "B. +2", "C. +1", "D. 0", "A", "Trong Fe2O3, oxi có số oxi hóa -2 => 2*Fe + 3*(-2) = 0 => Fe = +3."),
+        SampleQ("Chất nào sau đây làm quỳ tím chuyển sang màu đỏ?", "A. Axit axetic (CH3COOH)", "B. Ancol etylic", "C. Glucozơ", "D. Nước cất", "A", "Axit axetic CH3COOH có tính axit yếu làm quỳ tím hóa đỏ nhẹ."),
+        SampleQ("Dung dịch chất nào sau đây hòa tan được Cu(OH)2 ở nhiệt độ thường tạo phức màu xanh lam?", "A. Glucozơ", "B. Ancol etylic", "C. Benzen", "D. Etan", "A", "Glucozơ có nhiều nhóm -OH liền kề nên hòa tan được Cu(OH)2 tạo dung dịch xanh lam đặc trưng.")
     )
 
     private fun listGeneralQuestions(topic: String) = listOf(

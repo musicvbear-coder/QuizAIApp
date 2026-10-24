@@ -23,7 +23,7 @@ class AiQuizActivity : AppCompatActivity() {
 
     private val viewModel: AiQuizViewModel by viewModels {
         val database = KetNoiCoSoDuLieu.layInstance(applicationContext)
-        val apiKey = "AQ.Ab8RN6JxktdcaS39qNyV06agH5s_5AkPRDKgLyz61Qq9oI3-WQ"
+        val apiKey = com.example.quizaiapp.BuildConfig.GEMINI_API_KEY
         val repository = GeminiRepository(database.truyVanDeThiDao(), apiKey)
         object : androidx.lifecycle.ViewModelProvider.Factory {
             override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
