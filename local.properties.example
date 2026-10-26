@@ -1,0 +1,5 @@
+## Mẫu file local.properties cho dự án QuizAIApp
+# Tệp local.properties thực tế được Android Studio tự động khởi tạo trên mỗi máy tính.
+# Để sử dụng Gemini AI trực tuyến, hãy thêm dòng sau vào file local.properties trên máy bạn:
+
+GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere
