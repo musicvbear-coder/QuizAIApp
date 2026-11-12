@@ -94,7 +94,7 @@
             android:textStyle="bold"
             android:layout_marginBottom="20dp" />
 
-        <!-- AI Quiz Generator Card (Simplified Modern Sleek Card) -->
+        <!-- AI Quiz Generator Card -->
         <LinearLayout
             android:id="@+id/cardOpenAiQuiz"
             android:layout_width="match_parent"
@@ -102,7 +102,7 @@
             android:orientation="vertical"
             android:background="@drawable/bg_black_card"
             android:padding="24dp"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="16dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -125,7 +125,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Nhập chủ đề bất kỳ và số lượng câu hỏi để Gemini AI biên soạn câu hỏi trắc nghiệm kèm đáp án và lời giải chi tiết."
+                android:text="Nhập chủ đề bất kỳ hoặc tải tệp tài liệu để Gemini AI biên soạn câu hỏi trắc nghiệm kèm đáp án và lời giải chi tiết."
                 android:textColor="#94A3B8"
                 android:textSize="13sp"
                 android:lineSpacingExtra="2dp"
@@ -142,6 +142,57 @@
                 android:backgroundTint="@android:color/white"
                 app:cornerRadius="20dp" />
 
+        </LinearLayout>
+
+        <!-- Join Room Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_white_card"
+            android:padding="20dp"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔑 Vào phòng thi bằng Mã"
+                android:textColor="#0F172A"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <EditText
+                    android:id="@+id/edtRoomCodeInput"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_chip_gray_unselected"
+                    android:hint="Nhập Mã phòng (VD: 839210)"
+                    android:textColor="#0F172A"
+                    android:textColorHint="#94A3B8"
+                    android:paddingHorizontal="16dp"
+                    android:textSize="14sp"
+                    android:inputType="number"
+                    android:layout_marginEnd="10dp" />
+
+                <Button
+                    android:id="@+id/btnJoinRoom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:text="Vào thi ▶"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:backgroundTint="#0F172A"
+                    app:cornerRadius="12dp" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- "Đề thi & Lịch sử gần đây" Header -->

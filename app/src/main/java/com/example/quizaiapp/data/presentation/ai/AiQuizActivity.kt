@@ -1,13 +1,16 @@
 package com.example.quizaiapp.data.presentation.ai
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
@@ -16,10 +19,13 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.example.quizaiapp.R
 import com.example.quizaiapp.data.local.KetNoiCoSoDuLieu
 import com.example.quizaiapp.data.repository.GeminiRepository
+import com.example.quizaiapp.data.service.WordParserService
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class AiQuizActivity : AppCompatActivity() {
+
+    private var uploadedDocContent = ""
 
     private val viewModel: AiQuizViewModel by viewModels {
         val database = KetNoiCoSoDuLieu.layInstance(applicationContext)
@@ -35,6 +41,8 @@ class AiQuizActivity : AppCompatActivity() {
 
     private class UIComponents(
         val btnBack: ImageView,
+        val btnUploadDoc: Button,
+        val tvDocName: TextView,
         val edtTopic: EditText,
         val edtCount: EditText,
         val btnGenerate: Button,
@@ -43,12 +51,34 @@ class AiQuizActivity : AppCompatActivity() {
 
     private var ui: UIComponents? = null
 
+    private val docPickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { fileUri ->
+            lifecycleScope.launch {
+                Toast.makeText(this@AiQuizActivity, "Đang đọc nội dung tài liệu...", Toast.LENGTH_SHORT).show()
+                val database = KetNoiCoSoDuLieu.layInstance(applicationContext)
+                val parser = WordParserService(applicationContext, database.nganHangDao())
+                val (fileName, _) = parser.getFileInfo(fileUri)
+                val text = parser.extractRawTextFromUri(fileUri)
+                if (text.isNotBlank()) {
+                    uploadedDocContent = text
+                    val displayName = if (fileName.isNotBlank()) fileName else "Tài liệu"
+                    ui?.tvDocName?.text = "Đã đính kèm: $displayName (${text.length} ký tự)"
+                    Toast.makeText(this@AiQuizActivity, "Đã đính kèm tài liệu thành công ($displayName)!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@AiQuizActivity, "Không thể trích xuất văn bản từ tệp đã chọn.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ai_quiz)
 
         ui = UIComponents(
             btnBack = findViewById(R.id.btnBack),
+            btnUploadDoc = findViewById(R.id.btnUploadDoc),
+            tvDocName = findViewById(R.id.tvDocName),
             edtTopic = findViewById(R.id.edtTopic),
             edtCount = findViewById(R.id.edtCount),
             btnGenerate = findViewById(R.id.btnGenerate),
@@ -67,12 +97,16 @@ class AiQuizActivity : AppCompatActivity() {
             finish()
         }
 
+        ui?.btnUploadDoc?.setOnClickListener {
+            docPickerLauncher.launch("*/*")
+        }
+
         ui?.btnGenerate?.setOnClickListener {
             val topic = ui?.edtTopic?.text?.toString()?.trim() ?: ""
             val countStr = ui?.edtCount?.text?.toString()?.trim() ?: "10"
             val count = countStr.toIntOrNull() ?: 10
 
-            viewModel.taoDeThiBangAi(topic, count)
+            viewModel.taoDeThiBangAi(topic, count, uploadedDocContent)
         }
 
         observeViewModel()

@@ -22,15 +22,17 @@ class AiQuizViewModel(
     private val _uiState = MutableStateFlow<AiQuizUiState>(AiQuizUiState.Idle)
     val uiState: StateFlow<AiQuizUiState> = _uiState.asStateFlow()
 
-    fun taoDeThiBangAi(chuDe: String, soLuongCau: Int) {
-        if (chuDe.isBlank()) {
-            _uiState.value = AiQuizUiState.Error("Chủ đề kiểm tra không được để trống!")
+    fun taoDeThiBangAi(chuDe: String, soLuongCau: Int, docContent: String = "") {
+        if (chuDe.isBlank() && docContent.isBlank()) {
+            _uiState.value = AiQuizUiState.Error("Vui lòng nhập chủ đề hoặc tải lên tài liệu!")
             return
         }
 
+        val effectiveTopic = if (chuDe.isNotBlank()) chuDe else "Tài liệu đính kèm"
+
         viewModelScope.launch {
             _uiState.value = AiQuizUiState.Loading
-            val result = geminiRepository.taoVaLuuDeThiAi(chuDe, soLuongCau)
+            val result = geminiRepository.taoVaLuuDeThiAi(effectiveTopic, soLuongCau, docContent)
             if (result.isSuccess) {
                 val idDeThi = result.getOrNull() ?: ""
                 _uiState.value = AiQuizUiState.Success(idDeThi)

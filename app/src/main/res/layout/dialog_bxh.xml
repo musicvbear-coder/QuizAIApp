@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_dialog_top"
+    android:padding="24dp">
+
+    <!-- Top Header Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🏆 BẢNG XẾP HẠNG THỰC TẾ"
+                android:textColor="#0F172A"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvRoomTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mã phòng thi: #..."
+                android:textColor="#0F172A"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/btnCloseBxh"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="#F1F5F9"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            app:tint="#64748B"
+            android:padding="8dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvEmptyBxh"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Chưa có thí sinh nào nộp bài trong phòng này."
+        android:textColor="#64748B"
+        android:textSize="14sp"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        android:padding="24dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewBxh"
+        android:layout_width="match_parent"
+        android:layout_height="320dp" />
+
+</LinearLayout>

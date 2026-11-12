@@ -16,7 +16,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.example.quizaiapp.R
 import com.example.quizaiapp.data.local.KetNoiCoSoDuLieu
+import com.example.quizaiapp.data.local.SessionManager
 import com.example.quizaiapp.data.presentation.result.ResultActivity
+import com.example.quizaiapp.data.repository.FirebaseRepository
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -24,6 +26,7 @@ import java.util.Locale
 class QuizActivity : AppCompatActivity() {
 
     private val idDeThi by lazy { intent.getStringExtra("EXTRA_ID_DE_THI") ?: "" }
+    private val roomCode by lazy { intent.getStringExtra("EXTRA_ROOM_CODE") ?: "" }
 
     private val viewModel: QuizViewModel by viewModels {
         object : ViewModelProvider.Factory {
@@ -233,8 +236,15 @@ class QuizActivity : AppCompatActivity() {
             val dao = KetNoiCoSoDuLieu.layInstance(applicationContext).truyVanDeThiDao()
             dao.capNhatDiemSo(idDeThi, tongDiem)
 
+            if (roomCode.isNotBlank()) {
+                val sessionManager = SessionManager(applicationContext)
+                val userName = sessionManager.layTenNguoiDung()
+                FirebaseRepository().luuKetQuaPhongThi(roomCode, userName, tongDiem, soCauDung, viewModel.cauHoiList.value.size)
+            }
+
             val intent = Intent(this@QuizActivity, ResultActivity::class.java).apply {
                 putExtra("EXTRA_ID_DE_THI", idDeThi)
+                putExtra("EXTRA_ROOM_CODE", roomCode)
                 putExtra("EXTRA_SO_CAU_DUNG", soCauDung)
                 putExtra("EXTRA_TONG_DIEM", tongDiem)
                 putExtra("EXTRA_TONG_CAU", viewModel.cauHoiList.value.size)

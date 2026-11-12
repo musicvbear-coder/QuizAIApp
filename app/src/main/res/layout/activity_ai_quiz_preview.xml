@@ -103,6 +103,18 @@
             android:layout_marginBottom="8dp" />
 
         <Button
+            android:id="@+id/btnTaoPhongThi"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="🔑  Tạo Phòng thi &amp; Chia sẻ Mã"
+            android:textColor="@android:color/white"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:backgroundTint="#2563EB"
+            app:cornerRadius="14dp"
+            android:layout_marginBottom="8dp" />
+
+        <Button
             android:id="@+id/btnXuatFileDeThi"
             android:layout_width="match_parent"
             android:layout_height="48dp"
@@ -133,6 +145,18 @@
             android:text="🔄  Tạo lại"
             android:textColor="#64748B"
             android:textSize="14sp"
+            android:backgroundTint="#F1F5F9"
+            app:cornerRadius="14dp"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnBackHome"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:text="🏠  Quay về trang chủ"
+            android:textColor="#0F172A"
+            android:textSize="14sp"
+            android:textStyle="bold"
             android:backgroundTint="#F1F5F9"
             app:cornerRadius="14dp" />
 

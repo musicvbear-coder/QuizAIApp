@@ -6,7 +6,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -18,6 +20,7 @@ import com.example.quizaiapp.data.presentation.ai.AiQuizActivity
 import com.example.quizaiapp.data.presentation.nganhang.LichSuDeThiAdapter
 import com.example.quizaiapp.data.presentation.nganhang.XuatDeThiBottomSheetFragment
 import com.example.quizaiapp.data.presentation.quizz.QuizActivity
+import com.example.quizaiapp.data.repository.FirebaseRepository
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -38,6 +41,8 @@ class TrangChuFragment : Fragment() {
         val tvUserInitials = view.findViewById<TextView>(R.id.tvUserInitials)
         val cardOpenAiQuiz = view.findViewById<View>(R.id.cardOpenAiQuiz)
         val btnGenerateAi = view.findViewById<Button>(R.id.btnGenerateAi)
+        val edtRoomCodeInput = view.findViewById<EditText>(R.id.edtRoomCodeInput)
+        val btnJoinRoom = view.findViewById<Button>(R.id.btnJoinRoom)
         val tvViewAllHistory = view.findViewById<TextView>(R.id.tvViewAllHistory)
         val recyclerViewRecentExams = view.findViewById<RecyclerView>(R.id.recyclerViewRecentExams)
 
@@ -61,13 +66,41 @@ class TrangChuFragment : Fragment() {
         cardOpenAiQuiz?.setOnClickListener { openAiAction() }
         btnGenerateAi?.setOnClickListener { openAiAction() }
 
+        val db = KetNoiCoSoDuLieu.layInstance(requireContext().applicationContext)
+        val firebaseRepo = FirebaseRepository()
+
+        btnJoinRoom?.setOnClickListener {
+            val code = edtRoomCodeInput?.text?.toString()?.trim() ?: ""
+            if (code.isBlank()) {
+                Toast.makeText(requireContext(), "Vui lòng nhập mã phòng thi!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            viewLifecycleOwner.lifecycleScope.launch {
+                Toast.makeText(requireContext(), "Đang tìm phòng thi #$code...", Toast.LENGTH_SHORT).show()
+                val roomData = firebaseRepo.thamGiaPhongThi(code)
+                if (roomData != null) {
+                    val (deThi, questions) = roomData
+                    db.truyVanDeThiDao().luuTronBoDeThiAi(deThi, questions)
+
+                    Toast.makeText(requireContext(), "Vào phòng thi thành công!", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(requireContext(), QuizActivity::class.java).apply {
+                        putExtra("EXTRA_ID_DE_THI", deThi.idDeThi)
+                        putExtra("EXTRA_ROOM_CODE", code)
+                    }
+                    startActivity(intent)
+                } else {
+                    Toast.makeText(requireContext(), "Không tìm thấy phòng thi với mã #$code!", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
         tvViewAllHistory.setOnClickListener {
             (activity as? MainActivity)?.switchFragmentByMenuId(R.id.nav_bank)
         }
 
         recyclerViewRecentExams.layoutManager = LinearLayoutManager(requireContext())
 
-        val db = KetNoiCoSoDuLieu.layInstance(requireContext().applicationContext)
         viewLifecycleOwner.lifecycleScope.launch {
             db.truyVanDeThiDao().layToanBoLichSuDeThi().collectLatest { list ->
                 val recentList = list.take(5)

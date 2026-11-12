@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardBackgroundColor="#FFFFFF"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="2dp"
+    android:layout_marginBottom="10dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="16dp">
+
+        <!-- Rank Badge -->
+        <TextView
+            android:id="@+id/tvRankBadge"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_black_circle"
+            android:gravity="center"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="🥇" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:id="@+id/tvStudentName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#0F172A"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                tools:text="Thầy Đặng Kỳ Vĩ" />
+
+            <TextView
+                android:id="@+id/tvSubmitTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#64748B"
+                android:textSize="12sp"
+                tools:text="Nộp lúc: 10/10 14:30" />
+        </LinearLayout>
+
+        <!-- Score Badge -->
+        <TextView
+            android:id="@+id/tvStudentScore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#16A34A"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="10.0 / 10" />
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

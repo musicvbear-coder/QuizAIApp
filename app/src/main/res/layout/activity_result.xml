@@ -21,11 +21,11 @@
         <ImageView
             android:layout_width="72dp"
             android:layout_height="72dp"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/bg_black_circle"
-            android:src="@android:drawable/ic_dialog_info"
-            app:tint="@android:color/white"
             android:padding="18dp"
-            android:layout_marginBottom="16dp" />
+            android:src="@android:drawable/ic_dialog_info"
+            app:tint="@android:color/white" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -50,7 +50,7 @@
             app:cardBackgroundColor="#FFFFFF"
             app:cardCornerRadius="20dp"
             app:cardElevation="2dp"
-            android:layout_marginBottom="32dp">
+            android:layout_marginBottom="24dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -89,6 +89,20 @@
 
             </LinearLayout>
         </androidx.cardview.widget.CardView>
+
+        <Button
+            android:id="@+id/btnViewLeaderboard"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="🏆  Xem Bảng Xếp Hạng Phòng Thi"
+            android:textColor="#0F172A"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:backgroundTint="#F1F5F9"
+            app:cornerRadius="14dp"
+            android:visibility="gone"
+            android:layout_marginBottom="12dp"
+            tools:visibility="visible" />
 
         <Button
             android:id="@+id/btnBackHome"

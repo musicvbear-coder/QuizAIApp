@@ -13,6 +13,7 @@ import com.example.quizaiapp.R
 import com.example.quizaiapp.data.local.KetNoiCoSoDuLieu
 import com.example.quizaiapp.data.local.entity.CauHoi
 import com.example.quizaiapp.data.local.entity.PhuongAnTraLoi
+import com.example.quizaiapp.data.presentation.main.MainActivity
 import com.example.quizaiapp.data.presentation.quizz.QuizActivity
 import com.example.quizaiapp.data.repository.FirebaseRepository
 import com.example.quizaiapp.data.service.PdfGeneratorService
@@ -30,9 +31,11 @@ class AiQuizPreviewActivity : AppCompatActivity() {
         val tvExamInfo = findViewById<TextView>(R.id.tvExamInfo)
         val recyclerViewAiPreview = findViewById<RecyclerView>(R.id.recyclerViewAiPreview)
         val btnLamBaiNgay = findViewById<Button>(R.id.btnLamBaiNgay)
+        val btnTaoPhongThi = findViewById<Button>(R.id.btnTaoPhongThi)
         val btnXuatFileDeThi = findViewById<Button>(R.id.btnXuatFileDeThi)
         val btnLuuNganHang = findViewById<Button>(R.id.btnLuuNganHang)
         val btnTaoLai = findViewById<Button>(R.id.btnTaoLai)
+        val btnBackHome = findViewById<Button>(R.id.btnBackHome)
 
         recyclerViewAiPreview.layoutManager = LinearLayoutManager(this)
 
@@ -49,6 +52,7 @@ class AiQuizPreviewActivity : AppCompatActivity() {
 
             recyclerViewAiPreview.adapter = AiQuizPreviewAdapter(questions)
 
+            // 1. Nút Làm bài thi ngay
             btnLamBaiNgay.setOnClickListener {
                 val intent = Intent(this@AiQuizPreviewActivity, QuizActivity::class.java).apply {
                     putExtra("EXTRA_ID_DE_THI", idDeThi)
@@ -57,6 +61,22 @@ class AiQuizPreviewActivity : AppCompatActivity() {
                 finish()
             }
 
+            // 2. Nút Tạo phòng thi & Chia sẻ Mã
+            btnTaoPhongThi.setOnClickListener {
+                lifecycleScope.launch {
+                    if (deThi != null && questions.isNotEmpty()) {
+                        Toast.makeText(this@AiQuizPreviewActivity, "Đang khởi tạo phòng thi Đám mây...", Toast.LENGTH_SHORT).show()
+                        val roomCode = firebaseRepo.taoPhongThi(deThi, questions)
+                        Toast.makeText(
+                            this@AiQuizPreviewActivity,
+                            "🔑 Mã phòng thi của bạn là: #$roomCode. Hãy chia sẻ cho học sinh/bạn học!",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+
+            // 3. Nút Xuất file đề thi (PDF)
             btnXuatFileDeThi.setOnClickListener {
                 lifecycleScope.launch {
                     if (deThi != null && questions.isNotEmpty()) {
@@ -80,6 +100,7 @@ class AiQuizPreviewActivity : AppCompatActivity() {
                 }
             }
 
+            // 4. Nút Lưu vào Ngân hàng câu hỏi
             btnLuuNganHang.setOnClickListener {
                 lifecycleScope.launch {
                     if (deThi != null && questions.isNotEmpty()) {
@@ -116,7 +137,17 @@ class AiQuizPreviewActivity : AppCompatActivity() {
                 }
             }
 
+            // 5. Nút Tạo lại
             btnTaoLai.setOnClickListener {
+                finish()
+            }
+
+            // 6. Nút Quay về trang chủ
+            btnBackHome.setOnClickListener {
+                val intent = Intent(this@AiQuizPreviewActivity, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                startActivity(intent)
                 finish()
             }
         }

@@ -1,8 +1,10 @@
 package com.example.quizaiapp.data.repository
 
+import android.util.Log
 import com.example.quizaiapp.data.local.dao.TruyVanDeThiDao
 import com.example.quizaiapp.data.local.entity.ChiTietCauHoiAi
 import com.example.quizaiapp.data.local.entity.LichSuDeThi
+import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -19,74 +21,161 @@ class GeminiRepository(
     private val apiKey: String
 ) {
 
-    suspend fun taoVaLuuDeThiAi(chuDe: String, soLuongCau: Int): Result<String> {
+    companion object {
+        private const val TAG = "GeminiRepository"
+
+        private fun logError(tag: String, msg: String, throwable: Throwable? = null) {
+            try {
+                Log.e(tag, msg, throwable)
+            } catch (ignored: Throwable) {
+                println("[$tag ERROR] $msg")
+            }
+        }
+
+        private fun logDebug(tag: String, msg: String) {
+            try {
+                Log.d(tag, msg)
+            } catch (ignored: Throwable) {
+                println("[$tag DEBUG] $msg")
+            }
+        }
+    }
+
+    suspend fun taoVaLuuDeThiAi(chuDe: String, soLuongCau: Int, docContent: String = ""): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
                 val cleanKey = apiKey.trim()
                 val diemMoiCau = 10.0f / soLuongCau
-                val promptText = """
-                    Bạn là một chuyên gia giáo dục hàng đầu thế giới, am hiểu sâu sắc mọi lĩnh vực từ Khoa Học, Kỹ Thuật, Y Học, Luật Phóng, Kinh Tế đến Xã Hội.
-                    Hãy biên soạn đúng $soLuongCau câu hỏi trắc nghiệm khách quan cực kỳ thông minh, sát thực tế và đúng trọng tâm về chủ đề: "$chuDe".
+                val effectiveSubject = if (chuDe.isNotBlank()) chuDe else "Nội dung tệp tài liệu"
 
-                    Yêu cầu sư phạm khắt khe:
-                    1. Câu hỏi phải rõ ràng, mang tính ứng dụng thực tế hoặc kiểm tra tư duy phân tích sâu sắc về "$chuDe".
-                    2. 4 phương án A, B, C, D phải có độ nhiễu chất lượng, đánh đúng vào các khái niệm dễ nhầm lẫn của người học. Tuyệt đối KHÔNG dùng câu "Tất cả các đáp án trên".
-                    3. Chỉ ra đáp án chính xác (A, B, C hoặc D).
-                    4. Lời giải thích phải vô cùng chi tiết, phân tích rõ lý do tại sao đúng và tại sao các câu khác sai.
+                val promptText = if (docContent.isNotBlank()) {
+                    val userRequirement = if (chuDe.isNotBlank()) {
+                        "Hãy thực hiện ĐÚNG THEO YÊU CẦU/HƯỚNG DẪN BỔ SUNG của người dùng: \"$chuDe\""
+                    } else {
+                        "Tự động phân tích toàn bộ nội dung tài liệu và tạo các câu hỏi trắc nghiệm trọng tâm nhất"
+                    }
 
-                    Yêu cầu định dạng đầu ra:
-                    Trả về duy nhất một mảng JSON (JSONArray) hợp lệ, KHÔNG chứa văn bản giải thích hay lời chào nào bên ngoài JSON.
-                    [
-                      {
-                        "noiDungCauHoi": "Nội dung câu hỏi cụ thể?",
-                        "phuongAnA": "Nội dung đáp án A",
-                        "phuongAnB": "Nội dung đáp án B",
-                        "phuongAnC": "Nội dung đáp án C",
-                        "phuongAnD": "Nội dung đáp án D",
-                        "dapAnChinhXac": "A",
-                        "loiGiaiThich": "Lời giải thích chi tiết, thuyết phục từng bước"
-                      }
-                    ]
-                """.trimIndent()
+                    """
+                        Bạn là một chuyên gia giáo dục xuất sắc.
+                        Dựa TRỰC TIẾP và BÁM SÁT vào nội dung văn bản tài liệu dưới đây, hãy biên soạn đúng $soLuongCau câu hỏi trắc nghiệm khách quan chuẩn sư phạm.
+                        YÊU CẦU CỦA NGƯỜI DÙNG: $userRequirement
+
+                        NỘI DUNG TÀI LIỆU THAM KHẢO:
+                        \"\"\"
+                        $docContent
+                        \"\"\"
+
+                        Yêu cầu sư phạm khắt khe:
+                        1. Mọi câu hỏi và đáp án phải bám sát chính xác kiến thức có trong đoạn tài liệu tham khảo trên.
+                        2. 4 phương án A, B, C, D có độ nhiễu chất lượng. Tuyệt đối KHÔNG dùng câu "Tất cả các đáp án trên".
+                        3. Chỉ ra đáp án chính xác (A, B, C hoặc D).
+                        4. Lời giải thích chi tiết, trích dẫn nguyên văn câu văn từ tài liệu.
+
+                        Yêu cầu định dạng đầu ra:
+                        Trả về duy nhất một mảng JSON (JSONArray) hợp lệ, KHÔNG chứa bất kỳ văn bản ngoài JSON.
+                        [
+                          {
+                            "noiDungCauHoi": "Nội dung câu hỏi cụ thể?",
+                            "phuongAnA": "Nội dung đáp án A",
+                            "phuongAnB": "Nội dung đáp án B",
+                            "phuongAnC": "Nội dung đáp án C",
+                            "phuongAnD": "Nội dung đáp án D",
+                            "dapAnChinhXac": "A",
+                            "loiGiaiThich": "Lời giải thích chi tiết trích dẫn từ tài liệu"
+                          }
+                        ]
+                    """.trimIndent()
+                } else {
+                    """
+                        Bạn là một chuyên gia giáo dục xuất sắc am hiểu mọi lĩnh vực kiến thức, chuyên biên soạn đề thi trắc nghiệm khách quan chuẩn Bộ Giáo Dục và Đào Tạo Việt Nam với tư duy phân tích sâu sắc.
+                        Hãy biên soạn đúng $soLuongCau câu hỏi trắc nghiệm khách quan cực kỳ thông minh, sát thực tế và đúng trọng tâm về chủ đề: "$effectiveSubject".
+
+                        Yêu cầu sư phạm khắt khe:
+                        1. Câu hỏi phải rõ ràng, mang tính ứng dụng thực tế hoặc kiểm tra tư duy phân tích sâu sắc về "$effectiveSubject".
+                        2. 4 phương án A, B, C, D phải có độ nhiễu chất lượng. Tuyệt đối KHÔNG dùng câu "Tất cả các đáp án trên".
+                        3. Chỉ ra đáp án chính xác (A, B, C hoặc D).
+                        4. Lời giải thích phải vô cùng chi tiết, phân tích rõ lý do tại sao đúng và tại sao các câu khác sai.
+
+                        Yêu cầu định dạng đầu ra:
+                        Trả về duy nhất một mảng JSON (JSONArray) hợp lệ, KHÔNG chứa văn bản ngoài JSON.
+                        [
+                          {
+                            "noiDungCauHoi": "Nội dung câu hỏi cụ thể?",
+                            "phuongAnA": "Nội dung đáp án A",
+                            "phuongAnB": "Nội dung đáp án B",
+                            "phuongAnC": "Nội dung đáp án C",
+                            "phuongAnD": "Nội dung đáp án D",
+                            "dapAnChinhXac": "A",
+                            "loiGiaiThich": "Lời giải thích chi tiết, thuyết phục từng bước"
+                          }
+                        ]
+                    """.trimIndent()
+                }
 
                 var responseText: String? = null
+                var lastException: Exception? = null
 
-                // Danh sách thử nghiệm các khóa API & Cổng kết nối Gemini AI trực tuyến
-                val keyCandidates = listOf(
-                    cleanKey,
-                    "AIzaSyDemoKeyForGeminiLiveFlash2025"
-                ).filter { it.isNotBlank() && it != "YOUR_GEMINI_API_KEY_HERE" }
+                val isValidKey = cleanKey.isNotBlank() && cleanKey != "YOUR_GEMINI_API_KEY_HERE"
 
-                for (key in keyCandidates) {
-                    val apiEndpoints = listOf(
-                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$key",
-                        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$key",
-                        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$key"
-                    )
-
-                    for (endpoint in apiEndpoints) {
+                if (isValidKey) {
+                    // 1. Thử gọi qua Google Generative AI SDK (Cấu hình ưu tiên Gemini 3.0 / 2.0)
+                    val sdkModels = listOf("gemini-3.0-flash", "gemini-3-flash", "gemini-2.0-flash", "gemini-1.5-flash")
+                    for (modelName in sdkModels) {
                         try {
-                            val result = goiApiEndpoint(endpoint, promptText)
-                            if (result.isNotBlank()) {
-                                responseText = result
+                            val generativeModel = GenerativeModel(
+                                modelName = modelName,
+                                apiKey = cleanKey
+                            )
+                            val response = generativeModel.generateContent(promptText)
+                            val sdkText = response.text
+                            if (!sdkText.isNull_or_blank()) {
+                                responseText = sdkText
+                                logDebug(TAG, "Gọi Gemini SDK thành công với model $modelName!")
                                 break
                             }
-                        } catch (ignored: Exception) {
+                        } catch (e: Exception) {
+                            lastException = e
+                            logError(TAG, "Lỗi khi gọi Gemini SDK ($modelName): ${e.message}", e)
                         }
                     }
-                    if (responseText != null) break
+
+                    // 2. Thử gọi qua REST API trực tiếp đối với các Endpoint Gemini 3.0 / 2.0 / 1.5
+                    if (responseText.isNull_or_blank()) {
+                        val apiEndpoints = listOf(
+                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=$cleanKey",
+                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=$cleanKey",
+                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$cleanKey",
+                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$cleanKey"
+                        )
+
+                        for (endpoint in apiEndpoints) {
+                            try {
+                                val result = goiApiEndpoint(endpoint, promptText)
+                                if (result.isNotBlank()) {
+                                    responseText = result
+                                    logDebug(TAG, "Gọi Gemini REST API thành công!")
+                                    break
+                                }
+                            } catch (e: Exception) {
+                                lastException = e
+                                logError(TAG, "Lỗi khi gọi Gemini REST endpoint $endpoint: ${e.message}")
+                            }
+                        }
+                    }
                 }
 
-                if (responseText == null) {
-                    responseText = sinhDeThiPhongPhuTheoChuDe(chuDe, soLuongCau)
+                // 3. Dự phòng nếu API không có sẵn hoặc gặp lỗi kết nối
+                if (responseText.isNull_or_blank()) {
+                    responseText = sinhDeThiPhongPhuTheoChuDe(effectiveSubject, soLuongCau, docContent)
                 }
 
-                val jsonStart = responseText.indexOf('[')
-                val jsonEnd = responseText.lastIndexOf(']')
+                val safeResponseText = responseText ?: ""
+                val jsonStart = safeResponseText.indexOf('[')
+                val jsonEnd = safeResponseText.lastIndexOf(']')
                 val jsonClean = if (jsonStart != -1 && jsonEnd != -1 && jsonStart < jsonEnd) {
-                    responseText.substring(jsonStart, jsonEnd + 1)
+                    safeResponseText.substring(jsonStart, jsonEnd + 1)
                 } else {
-                    sinhDeThiPhongPhuTheoChuDe(chuDe, soLuongCau)
+                    sinhDeThiPhongPhuTheoChuDe(effectiveSubject, soLuongCau, docContent)
                 }
 
                 val jsonArray = JSONArray(jsonClean)
@@ -112,7 +201,7 @@ class GeminiRepository(
 
                 val thongTinDeThi = LichSuDeThi(
                     idDeThi = idDeThi,
-                    chuDeKiemsTra = chuDe,
+                    chuDeKiemsTra = effectiveSubject,
                     tongSoCau = jsonArray.length(),
                     diemMoiCau = diemMoiCau,
                     thoiGianTao = thoiGianTao,
@@ -123,6 +212,7 @@ class GeminiRepository(
 
                 Result.success(idDeThi)
             } catch (e: Exception) {
+                logError(TAG, "Lỗi tổng thể taoVaLuuDeThiAi: ${e.message}", e)
                 Result.failure(e)
             }
         }
@@ -134,25 +224,15 @@ class GeminiRepository(
         connection.requestMethod = "POST"
         connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
         connection.doOutput = true
-        connection.connectTimeout = 20000
-        connection.readTimeout = 20000
+        connection.connectTimeout = 30000
+        connection.readTimeout = 30000
 
         val requestBody = JSONObject().apply {
-            val systemInstructionObj = JSONObject().apply {
-                val parts = JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("text", "Bạn là một chuyên gia giáo dục xuất sắc am hiểu mọi lĩnh vực kiến thức, chuyên biên soạn đề thi trắc nghiệm khách quan chuẩn Bộ Giáo Dục và Đào Tạo Việt Nam với tư duy phân tích sâu sắc.")
-                    })
-                }
-                put("parts", parts)
-            }
-            put("systemInstruction", systemInstructionObj)
-
             val genConfig = JSONObject().apply {
                 put("temperature", 0.7)
                 put("topK", 40)
                 put("topP", 0.95)
-                put("maxOutputTokens", 2048)
+                put("maxOutputTokens", 4096)
             }
             put("generationConfig", genConfig)
 
@@ -197,14 +277,65 @@ class GeminiRepository(
                     return parts.getJSONObject(0).optString("text", "")
                 }
             }
+        } else {
+            val errorStream = connection.errorStream
+            val errorText = if (errorStream != null) {
+                BufferedReader(InputStreamReader(errorStream, "UTF-8")).use { it.readText() }
+            } else ""
+            logError(TAG, "Gemini API HTTP Error $responseCode: $errorText")
+            throw Exception("HTTP $responseCode: $errorText")
         }
-        throw Exception("HTTP $responseCode")
+        return ""
     }
 
-    private fun sinhDeThiPhongPhuTheoChuDe(chuDe: String, soLuongCau: Int): String {
-        val lower = chuDe.lowercase()
+    private fun sinhDeThiPhongPhuTheoChuDe(chuDe: String, soLuongCau: Int, docContent: String = ""): String {
         val jsonArray = JSONArray()
 
+        if (docContent.isNotBlank()) {
+            val cleanDoc = docContent.replace(Regex("\\s+"), " ").trim()
+            val rawSentences = cleanDoc.split(Regex("[.?!\\r\\n]+"))
+                .map { it.trim() }
+                .filter { sentence ->
+                    sentence.length >= 12 &&
+                            !sentence.lowercase().contains("pdf-") &&
+                            !sentence.lowercase().contains("endobj") &&
+                            !sentence.lowercase().contains("flatedecode")
+                }
+
+            val sentences = if (rawSentences.isNotEmpty()) {
+                rawSentences
+            } else {
+                // Tách đoạn thành các phần nhỏ 40-100 ký tự từ văn bản
+                cleanDoc.chunked(80).filter { it.length >= 10 }
+            }
+
+            if (sentences.isNotEmpty()) {
+                val dapAnList = listOf("A", "B", "C", "D")
+                for (i in 0 until soLuongCau) {
+                    val sentence = sentences[i % sentences.size]
+                    val correctPos = dapAnList[i % 4]
+
+                    val optionA = if (correctPos == "A") sentence else "Phân tích không tương thích với trích dẫn tài liệu"
+                    val optionB = if (correctPos == "B") sentence else "Nội dung mở rộng ngoài phạm vi tài liệu"
+                    val optionC = if (correctPos == "C") sentence else "Khái niệm tương đương nhưng chưa chính xác"
+                    val optionD = if (correctPos == "D") sentence else "Giả thuyết không được đề cập trong tệp đính kèm"
+
+                    val obj = JSONObject().apply {
+                        put("noiDungCauHoi", "Câu ${i + 1}: Căn cứ vào nội dung tệp tài liệu đính kèm, khẳng định nào sau đây là ĐÚNG về: \"${sentence.take(90)}\"?")
+                        put("phuongAnA", optionA)
+                        put("phuongAnB", optionB)
+                        put("phuongAnC", optionC)
+                        put("phuongAnD", optionD)
+                        put("dapAnChinhXac", correctPos)
+                        put("loiGiaiThich", "Căn cứ trực tiếp từ trích đoạn trong tài liệu đính kèm: \"$sentence\".")
+                    }
+                    jsonArray.put(obj)
+                }
+                return jsonArray.toString()
+            }
+        }
+
+        val lower = chuDe.lowercase()
         val questionTemplates = when {
             lower.contains("tiếng anh") || lower.contains("english") -> listEnglishQuestions(chuDe)
             lower.contains("hàm số") || lower.contains("toán") || lower.contains("math") -> listMathQuestions(chuDe)
@@ -229,6 +360,10 @@ class GeminiRepository(
         }
 
         return jsonArray.toString()
+    }
+
+    private fun String?.isNull_or_blank(): Boolean {
+        return this == null || this.trim().isEmpty()
     }
 
     private data class SampleQ(val noiDung: String, val a: String, val b: String, val c: String, val d: String, val correct: String, val explain: String)

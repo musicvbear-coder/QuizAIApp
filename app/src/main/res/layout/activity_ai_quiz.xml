@@ -48,7 +48,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="✨ Biên soạn câu hỏi tự động"
+            android:text="Biên soạn câu hỏi tự động"
             android:textColor="#0F172A"
             android:textSize="22sp"
             android:textStyle="bold"
@@ -57,11 +57,45 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Nhập chủ đề bất kỳ và số lượng câu hỏi để Gemini AI sinh đề trắc nghiệm kèm đáp án và lời giải chi tiết."
+            android:text="Nhập chủ đề hoặc Tải lên tệp tài liệu (.docx, .pdf, .txt) để Gemini AI sinh đề trắc nghiệm sát bài học."
             android:textColor="#64748B"
             android:textSize="13sp"
             android:lineSpacingExtra="2dp"
-            android:layout_marginBottom="28dp" />
+            android:layout_marginBottom="24dp" />
+
+        <!-- Document Upload Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_white_card"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp">
+
+            <Button
+                android:id="@+id/btnUploadDoc"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="📎 Tải tài liệu"
+                android:textColor="#0F172A"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:backgroundTint="#F1F5F9"
+                app:cornerRadius="10dp" />
+
+            <TextView
+                android:id="@+id/tvDocName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Chưa chọn tài liệu đính kèm"
+                android:textColor="#64748B"
+                android:textSize="12sp"
+                android:layout_marginStart="12dp"
+                android:singleLine="true"
+                android:ellipsize="middle" />
+        </LinearLayout>
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
@@ -111,7 +145,7 @@
             android:id="@+id/btnGenerate"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:text="✨ Bắt đầu tạo đề với AI"
+            android:text=" Bắt đầu tạo đề với AI"
             android:textColor="@android:color/white"
             android:textSize="16sp"
             android:textStyle="bold"
