@@ -3,6 +3,7 @@ package com.example.quizaiapp.data.service
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Log
 import com.example.quizaiapp.data.local.dao.NganHangDao
 import com.example.quizaiapp.data.local.entity.CauHoi
 import com.example.quizaiapp.data.local.entity.PhuongAnTraLoi
@@ -23,40 +24,74 @@ class WordParserService(
     private val nganHangDao: NganHangDao
 ) {
 
-    suspend fun extractRawTextFromUri(uri: Uri): String {
+    companion object {
+        private const val TAG = "WordParserService"
+    }
+
+    suspend fun readBytesFromUri(uri: Uri, maxSizeBytes: Long = 15 * 1024 * 1024): ByteArray? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext null
+                val bytes = inputStream.use { it.readBytes() }
+                if (bytes.size > maxSizeBytes) {
+                    Log.e(TAG, "Lỗi: Tệp vượt quá kích thước cho phép (${maxSizeBytes / (1024 * 1024)}MB)")
+                    null
+                } else {
+                    bytes
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Lỗi khi đọc tệp từ Uri: ${e.message}")
+                null
+            }
+        }
+    }
+
+    suspend fun extractRawTextFromUri(uri: Uri, maxChars: Int = 150000): String {
         return withContext(Dispatchers.IO) {
             try {
                 val (fileName, mimeType) = getFileInfo(uri)
-                val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext ""
-                val bytes = inputStream.readBytes()
-                inputStream.close()
+                val inputStream = context.contentResolver.openInputStream(uri)
+                    ?: throw Exception("Không thể mở tệp từ đường dẫn đã chọn.")
 
-                if (bytes.isEmpty()) return@withContext ""
+                val bytes = inputStream.use { it.readBytes() }
+
+                if (bytes.isEmpty()) {
+                    throw Exception("Tệp rỗng hoặc không có dữ liệu.")
+                }
 
                 val nameLower = fileName.lowercase()
                 val mimeLower = mimeType.lowercase()
+                val isPdf = nameLower.endsWith(".pdf") || mimeLower.contains("pdf") || isPdfBytes(bytes)
 
                 val rawText = when {
                     nameLower.endsWith(".docx") || mimeLower.contains("word") || mimeLower.contains("officedocument.wordprocessingml") -> {
                         extractDocxFromBytes(bytes)
                     }
-                    nameLower.endsWith(".pdf") || mimeLower.contains("pdf") -> {
+                    isPdf -> {
                         extractPdfFromBytes(bytes)
                     }
                     else -> {
                         if (isZipBytes(bytes)) {
                             extractDocxFromBytes(bytes)
-                        } else if (isPdfBytes(bytes)) {
-                            extractPdfFromBytes(bytes)
                         } else {
                             extractPlainTextFromBytes(bytes)
                         }
                     }
                 }
 
-                cleanTextContent(rawText)
+                val cleaned = cleanTextContent(rawText, maxChars)
+                if (cleaned.isBlank()) {
+                    if (isPdf) {
+                        throw Exception("Không thể trích xuất văn bản từ PDF (có thể là PDF dạng ảnh quét).")
+                    } else {
+                        throw Exception("Không tìm thấy nội dung văn bản trong tệp hoặc định dạng không được hỗ trợ.")
+                    }
+                }
+
+                cleaned
             } catch (e: Exception) {
-                ""
+                Log.e(TAG, "Lỗi khi trích xuất văn bản từ Uri: ${e.message}")
+                throw e
             }
         }
     }
@@ -113,12 +148,19 @@ class WordParserService(
                     val paragraphs = xmlContent.split(Regex("</w:p>"))
 
                     for (p in paragraphs) {
-                        val matcher = Pattern.compile("<w:t[^>]*>(.*?)</w:t>", Pattern.DOTALL).matcher(p)
+                        val matcher = Pattern.compile("<w:t(?:\\s+[^>]*)?>(.*?)</w:t>|<w:tab\\s*/>|<w:br\\s*/>", Pattern.DOTALL).matcher(p)
                         val pSb = StringBuilder()
                         while (matcher.find()) {
-                            val text = matcher.group(1) ?: ""
-                            if (text.isNotBlank()) {
-                                pSb.append(text)
+                            val matched = matcher.group()
+                            if (matched.startsWith("<w:t")) {
+                                val text = matcher.group(1) ?: ""
+                                if (text.isNotEmpty()) {
+                                    pSb.append(text)
+                                }
+                            } else if (matched.contains("tab")) {
+                                pSb.append("\t")
+                            } else if (matched.contains("br")) {
+                                pSb.append("\n")
                             }
                         }
                         val cleanedParagraph = unescapeXml(pSb.toString()).trim()
@@ -385,17 +427,17 @@ class WordParserService(
         return (validCharCount.toDouble() / str.length) > 0.60
     }
 
-    private fun cleanTextContent(raw: String): String {
+    fun cleanTextContent(raw: String, maxChars: Int = 150000): String {
         val cleaned = raw.replace(Regex("[ \\t]+"), " ")
             .replace(Regex("\\n{3,}"), "\n\n")
             .trim()
-        return if (cleaned.length > 8000) cleaned.substring(0, 8000) else cleaned
+        return if (cleaned.length > maxChars) cleaned.substring(0, maxChars) else cleaned
     }
 
     suspend fun parseAndImportFile(uri: Uri, subjectName: String): Result<Int> {
         return withContext(Dispatchers.IO) {
             try {
-                val fullText = extractRawTextFromUri(uri)
+                val fullText = extractRawTextFromUri(uri, maxChars = 8000)
                 if (fullText.isBlank()) throw Exception("Không thể trích xuất văn bản từ tệp.")
 
                 val lines = fullText.split(Regex("[\\r\\n]+"))
@@ -471,5 +513,4 @@ class WordParserService(
             }
         }
     }
-
 }

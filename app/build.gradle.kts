@@ -11,7 +11,7 @@ val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
-val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: "YOUR_GEMINI_API_KEY_HERE"
+val geminiApiKey = (localProperties.getProperty("GEMINI_API_KEY") ?: "").trim()
 
 android {
     namespace = "com.example.quizaiapp"
@@ -65,7 +65,6 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
 
-    implementation(libs.generativeai)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
     implementation(libs.androidx.activity.ktx)

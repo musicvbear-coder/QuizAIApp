@@ -6,10 +6,10 @@
 
 ## 🌟 Tính Năng Nổi Bật
 
-- **✨ Tạo đề thi tự động bằng AI**: Nhập chủ đề bất kỳ và số lượng câu hỏi để Gemini AI biên soạn câu hỏi trắc nghiệm kèm đáp án và lời giải chi tiết.
-- **📱 Kiến trúc Single Activity + Fragments**: Chuyển đổi mượt mượt giữa Trang chủ, Ngân hàng đề và Trang cá nhân theo chuẩn Google Android.
+- **✨ Tạo đề thi tự động bằng AI**: Nhập chủ đề bất kỳ hoặc tải lên tài liệu (.docx, .pdf, .txt) để Gemini AI biên soạn câu hỏi trắc nghiệm kèm đáp án và lời giải chi tiết qua REST API.
+- **📱 Kiến trúc Single Activity + Fragments**: Chuyển đổi mượt mà giữa Trang chủ, Ngân hàng đề và Trang cá nhân theo chuẩn Google Android.
 - **📥 Xuất file PDF kép**: Tự động sinh ra 2 file PDF chuẩn A4 (Đề thi & Đáp án kèm lời giải) lưu trực tiếp vào thư mục Downloads của thiết bị.
-- **📄 Nhập file tài liệu tự động**: Đọc và bóc tách câu hỏi từ file Word/TXT vào Ngân hàng câu hỏi.
+- **📄 Nhập file tài liệu tự động**: Đọc và bóc tách câu hỏi từ file Word/TXT/PDF vào Ngân hàng câu hỏi hoặc truyền trực tiếp PDF dạng Base64 sang AI.
 - **☁️ Đồng bộ đám mây Firebase**: Đăng ký/Đăng nhập tài khoản và sao lưu đề thi lên Firebase Cloud Authentication & Firestore Database.
 - **🎨 Giao diện Light Theme Hiện đại**: Tông màu Sáng Trắng & Đen nhám tương phản cao, thẻ bo góc hiện đại.
 
@@ -26,7 +26,7 @@ Dự án sử dụng cơ chế bảo mật khóa API thông qua file `local.prop
    ```
 3. Bấm **Sync Project with Gradle Files** và chạy ứng dụng.
 
-*Ghi chú: Nếu không cấu hình `GEMINI_API_KEY`, ứng dụng sẽ tự động kích hoạt **Chế độ Thi Thông Minh Dự Phòng (Smart Local Engine)** cho các môn Toán, Tiếng Anh, Tin Học, Lịch Sử, Hóa Học mà không gây ra bất kỳ lỗi hệ thống nào.*
+*Ghi chú: Khi gặp lỗi kết nối hoặc khóa API không hợp lệ, ứng dụng sẽ hiển thị thông báo lỗi chi tiết (kèm mã trạng thái HTTP) để người dùng chủ động thử lại hoặc chọn sử dụng đề mẫu offline.*
 
 ---
 
@@ -35,5 +35,5 @@ Dự án sử dụng cơ chế bảo mật khóa API thông qua file `local.prop
 - **Language**: Kotlin (JDK 17, Target SDK 36)
 - **Database**: Room Database (SQLite) v2.8.5 & Firebase Firestore
 - **Auth**: Firebase Authentication & SharedPreferences SessionManager
-- **AI Model**: Google Gemini AI (1.5 Flash / 2.0 Flash) REST API
+- **AI Integration**: Google Gemini REST API (Tự động dò tìm model Flash khả dụng, gửi key qua HTTP header, xử lý PDF inlineData)
 - **PDF Engine**: Android PdfDocument & StaticLayout TextPaint

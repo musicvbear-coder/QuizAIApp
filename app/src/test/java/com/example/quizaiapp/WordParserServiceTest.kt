@@ -30,10 +30,10 @@ class WordParserServiceTest {
             <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
                 <w:body>
                     <w:p>
-                        <w:t>Thủ đô của Việt Nam là Hà Nội.</w:t>
+                        <w:t>Thu do cua Viet Nam la Ha Noi.</w:t>
                     </w:p>
                     <w:p>
-                        <w:t>Cách mạng tháng Tám diễn ra năm 1945.</w:t>
+                        <w:t>Cach mang thang Tam dien ra nam 1945.</w:t>
                     </w:p>
                 </w:body>
             </w:document>
@@ -46,22 +46,54 @@ class WordParserServiceTest {
 
         val docxBytes = bos.toByteArray()
         val extractedText = dummyService.extractDocxFromBytes(docxBytes)
-        assertTrue(extractedText.contains("Thủ đô của Việt Nam là Hà Nội."))
-        assertTrue(extractedText.contains("Cách mạng tháng Tám diễn ra năm 1945."))
+        assertTrue(extractedText.contains("Thu do cua Viet Nam la Ha Noi."))
+        assertTrue(extractedText.contains("Cach mang thang Tam dien ra nam 1945."))
+    }
+
+    @Test
+    fun testExtractDocxFromBytes_handlesTabAndBrTags() {
+        val bos = ByteArrayOutputStream()
+        val zos = ZipOutputStream(bos)
+
+        val xmlContent = """
+            <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+            <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                <w:body>
+                    <w:p>
+                        <w:t>Tieu de</w:t>
+                        <w:tab/>
+                        <w:t>Noi dung</w:t>
+                        <w:br/>
+                        <w:t>Dong moi</w:t>
+                    </w:p>
+                </w:body>
+            </w:document>
+        """.trimIndent()
+
+        zos.putNextEntry(ZipEntry("word/document.xml"))
+        zos.write(xmlContent.toByteArray(StandardCharsets.UTF_8))
+        zos.closeEntry()
+        zos.close()
+
+        val docxBytes = bos.toByteArray()
+        val extractedText = dummyService.extractDocxFromBytes(docxBytes)
+        assertTrue(extractedText.contains("Tieu de"))
+        assertTrue(extractedText.contains("Noi dung"))
+        assertTrue(extractedText.contains("Dong moi"))
     }
 
     @Test
     fun testExtractPlainTextFromBytes_returnsCorrectText() {
-        val text = "Bài học về Chiến dịch Điện Biên Phủ năm 1954 kéo dài 56 ngày đêm."
+        val text = "Bai hoc ve Chien dich Dien Bien Phu nam 1954 keo dai 56 ngay dem."
         val bytes = text.toByteArray(StandardCharsets.UTF_8)
 
         val extracted = dummyService.extractPlainTextFromBytes(bytes)
-        assertTrue(extracted.contains("Chiến dịch Điện Biên Phủ"))
+        assertTrue(extracted.contains("Chien dich Dien Bien Phu"))
     }
 
     @Test
     fun testExtractPdfFromBytes_extractsTextFromDecompressedStream() {
-        val pdfStreamContent = "BT /F1 12 Tf (Kỳ thi tốt nghiệp THPT Quốc Gia năm 2025) Tj ET"
+        val pdfStreamContent = "BT /F1 12 Tf (Ky thi tot nghiep THPT Quoc Gia nam 2025) Tj ET"
         val rawPdf = """
             1 0 obj
             << /Type /Catalog >>
@@ -76,7 +108,7 @@ class WordParserServiceTest {
 
         val pdfBytes = rawPdf.toByteArray(StandardCharsets.UTF_8)
         val extracted = dummyService.extractPdfFromBytes(pdfBytes)
-        assertTrue(extracted.contains("Kỳ thi tốt nghiệp THPT Quốc Gia năm 2025"))
+        assertTrue(extracted.contains("Ky thi tot nghiep THPT Quoc Gia nam 2025"))
     }
 }
 

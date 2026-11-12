@@ -4,16 +4,14 @@ import android.util.Log
 import com.example.quizaiapp.data.local.dao.TruyVanDeThiDao
 import com.example.quizaiapp.data.local.entity.ChiTietCauHoiAi
 import com.example.quizaiapp.data.local.entity.LichSuDeThi
-import com.google.ai.client.generativeai.GenerativeModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 class GeminiRepository(
@@ -23,6 +21,7 @@ class GeminiRepository(
 
     companion object {
         private const val TAG = "GeminiRepository"
+        private var lastWorkingModel: String? = null
 
         private fun logError(tag: String, msg: String, throwable: Throwable? = null) {
             try {
@@ -39,26 +38,83 @@ class GeminiRepository(
                 println("[$tag DEBUG] $msg")
             }
         }
+
+        private fun encodeBase64NoWrap(bytes: ByteArray): String {
+            return try {
+                android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            } catch (e: Throwable) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    java.util.Base64.getEncoder().encodeToString(bytes)
+                } else {
+                    ""
+                }
+            }
+        }
     }
 
-    suspend fun taoVaLuuDeThiAi(chuDe: String, soLuongCau: Int, docContent: String = ""): Result<String> {
+    suspend fun taoVaLuuDeThiAi(
+        chuDe: String,
+        soLuongCau: Int,
+        docContent: String = "",
+        pdfBytes: ByteArray? = null
+    ): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
                 val cleanKey = apiKey.trim()
+                if (cleanKey.isBlank() || cleanKey == "YOUR_GEMINI_API_KEY_HERE") {
+                    return@withContext Result.failure(Exception("Chưa cấu hình GEMINI_API_KEY"))
+                }
+
+                if (pdfBytes != null && pdfBytes.isNotEmpty()) {
+                    if (pdfBytes.size > 15 * 1024 * 1024) {
+                        return@withContext Result.failure(Exception("Kích thước tệp PDF vượt quá 15MB. Vui lòng chọn tệp nhỏ hơn."))
+                    }
+                }
+
                 val diemMoiCau = 10.0f / soLuongCau
                 val effectiveSubject = if (chuDe.isNotBlank()) chuDe else "Nội dung tệp tài liệu"
 
-                val promptText = if (docContent.isNotBlank()) {
-                    val userRequirement = if (chuDe.isNotBlank()) {
-                        "Hãy thực hiện ĐÚNG THEO YÊU CẦU/HƯỚNG DẪN BỔ SUNG của người dùng: \"$chuDe\""
+                val promptText = if (pdfBytes != null && pdfBytes.isNotEmpty()) {
+                    val userReq = if (chuDe.isNotBlank()) {
+                        "YÊU CẦU CỦA NGƯỜI DÙNG: \"$chuDe\""
+                    } else {
+                        "Tự động phân tích toàn bộ nội dung tài liệu PDF đính kèm và tạo các câu hỏi trắc nghiệm trọng tâm nhất."
+                    }
+                    """
+                        Bạn là một chuyên gia giáo dục xuất sắc.
+                        Dựa TRỰC TIẾP và BÁM SÁT vào nội dung tài liệu PDF đính kèm, hãy biên soạn đúng $soLuongCau câu hỏi trắc nghiệm khách quan chuẩn sư phạm.
+                        $userReq
+
+                        Yêu cầu sư phạm khắt khe:
+                        1. Mọi câu hỏi và đáp án phải bám sát chính xác kiến thức có trong tài liệu PDF đính kèm.
+                        2. 4 phương án A, B, C, D có độ nhiễu chất lượng. Tuyệt đối KHÔNG dùng câu "Tất cả các đáp án trên".
+                        3. Chỉ ra đáp án chính xác (A, B, C hoặc D).
+                        4. Lời giải thích chi tiết, trích dẫn nội dung từ tài liệu PDF.
+
+                        Yêu cầu định dạng đầu ra:
+                        Trả về duy nhất một mảng JSON (JSONArray) hợp lệ, KHÔNG chứa bất kỳ văn bản ngoài JSON.
+                        [
+                          {
+                            "noiDungCauHoi": "Nội dung câu hỏi cụ thể?",
+                            "phuongAnA": "Nội dung đáp án A",
+                            "phuongAnB": "Nội dung đáp án B",
+                            "phuongAnC": "Nội dung đáp án C",
+                            "phuongAnD": "Nội dung đáp án D",
+                            "dapAnChinhXac": "A",
+                            "loiGiaiThich": "Lời giải thích chi tiết"
+                          }
+                        ]
+                    """.trimIndent()
+                } else if (docContent.isNotBlank()) {
+                    val userReq = if (chuDe.isNotBlank()) {
+                        "YÊU CẦU CỦA NGƯỜI DÙNG: \"$chuDe\""
                     } else {
                         "Tự động phân tích toàn bộ nội dung tài liệu và tạo các câu hỏi trắc nghiệm trọng tâm nhất"
                     }
-
                     """
                         Bạn là một chuyên gia giáo dục xuất sắc.
                         Dựa TRỰC TIẾP và BÁM SÁT vào nội dung văn bản tài liệu dưới đây, hãy biên soạn đúng $soLuongCau câu hỏi trắc nghiệm khách quan chuẩn sư phạm.
-                        YÊU CẦU CỦA NGƯỜI DÙNG: $userRequirement
+                        $userReq
 
                         NỘI DUNG TÀI LIỆU THAM KHẢO:
                         \"\"\"
@@ -81,7 +137,7 @@ class GeminiRepository(
                             "phuongAnC": "Nội dung đáp án C",
                             "phuongAnD": "Nội dung đáp án D",
                             "dapAnChinhXac": "A",
-                            "loiGiaiThich": "Lời giải thích chi tiết trích dẫn từ tài liệu"
+                            "loiGiaiThich": "Lời giải thích chi tiết"
                           }
                         ]
                     """.trimIndent()
@@ -112,73 +168,113 @@ class GeminiRepository(
                     """.trimIndent()
                 }
 
+                val candidateModels = mutableListOf<String>()
+                lastWorkingModel?.let { candidateModels.add(it) }
+                if (!candidateModels.contains("gemini-3-flash-preview")) {
+                    candidateModels.add("gemini-3-flash-preview")
+                }
+
+                var discoveredModels: List<String>? = null
                 var responseText: String? = null
-                var lastException: Exception? = null
+                var lastErrorMessage = "Không thể kết nối dịch vụ Gemini API."
 
-                val isValidKey = cleanKey.isNotBlank() && cleanKey != "YOUR_GEMINI_API_KEY_HERE"
+                val triedModels = mutableSetOf<String>()
+                var attemptCount = 0
+                var count429 = 0
 
-                if (isValidKey) {
-                    // 1. Thử gọi qua Google Generative AI SDK (Cấu hình ưu tiên Gemini 3.0 / 2.0)
-                    val sdkModels = listOf("gemini-3.0-flash", "gemini-3-flash", "gemini-2.0-flash", "gemini-1.5-flash")
-                    for (modelName in sdkModels) {
-                        try {
-                            val generativeModel = GenerativeModel(
-                                modelName = modelName,
-                                apiKey = cleanKey
-                            )
-                            val response = generativeModel.generateContent(promptText)
-                            val sdkText = response.text
-                            if (!sdkText.isNull_or_blank()) {
-                                responseText = sdkText
-                                logDebug(TAG, "Gọi Gemini SDK thành công với model $modelName!")
+                while (attemptCount < 3) {
+                    var modelToTry: String? = candidateModels.firstOrNull { !triedModels.contains(it) }
+
+                    if (modelToTry == null) {
+                        if (discoveredModels == null) {
+                            discoveredModels = discoverFlashModels(cleanKey)
+                        }
+                        modelToTry = discoveredModels.firstOrNull { !triedModels.contains(it) }
+                    }
+
+                    if (modelToTry == null) {
+                        break
+                    }
+
+                    attemptCount++
+                    triedModels.add(modelToTry)
+                    logDebug(TAG, "Đang thử gọi Gemini API với model: $modelToTry (lần thử $attemptCount/3)...")
+
+                    try {
+                        val (code, rawBody) = goiApiGenerateContent(modelToTry, cleanKey, promptText, pdfBytes)
+
+                        when (code) {
+                            200 -> {
+                                val extracted = extractTextFromGeminiResponse(rawBody)
+                                if (extracted.isNotBlank()) {
+                                    responseText = extracted
+                                    lastWorkingModel = modelToTry
+                                    logDebug(TAG, "Gọi thành công model $modelToTry!")
+                                    break
+                                } else {
+                                    lastErrorMessage = "Phản hồi từ AI rỗng (Model: $modelToTry)"
+                                }
+                            }
+                            400, 403 -> {
+                                lastErrorMessage = "Khóa API không hợp lệ hoặc bị từ chối (HTTP $code)"
+                                logError(TAG, "Lỗi API Key ($code) khi gọi model $modelToTry. Dừng thử nghiệm.")
                                 break
                             }
-                        } catch (e: Exception) {
-                            lastException = e
-                            logError(TAG, "Lỗi khi gọi Gemini SDK ($modelName): ${e.message}", e)
-                        }
-                    }
-
-                    // 2. Thử gọi qua REST API trực tiếp đối với các Endpoint Gemini 3.0 / 2.0 / 1.5
-                    if (responseText.isNull_or_blank()) {
-                        val apiEndpoints = listOf(
-                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=$cleanKey",
-                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=$cleanKey",
-                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$cleanKey",
-                            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$cleanKey"
-                        )
-
-                        for (endpoint in apiEndpoints) {
-                            try {
-                                val result = goiApiEndpoint(endpoint, promptText)
-                                if (result.isNotBlank()) {
-                                    responseText = result
-                                    logDebug(TAG, "Gọi Gemini REST API thành công!")
+                            404 -> {
+                                lastErrorMessage = "Model AI không tồn tại (HTTP 404)"
+                                logError(TAG, "Model $modelToTry trả về 404. Sẽ thử model tiếp theo.")
+                                if (discoveredModels == null) {
+                                    discoveredModels = discoverFlashModels(cleanKey)
+                                }
+                            }
+                            429 -> {
+                                count429++
+                                lastErrorMessage = "Hệ thống AI đang quá tải hoặc đã hết hạn mức sử dụng (HTTP 429)"
+                                logError(TAG, "Model $modelToTry bị giới hạn hạn mức (HTTP 429).")
+                                if (count429 >= 2 || attemptCount >= 3) {
                                     break
                                 }
-                            } catch (e: Exception) {
-                                lastException = e
-                                logError(TAG, "Lỗi khi gọi Gemini REST endpoint $endpoint: ${e.message}")
+                                if (discoveredModels == null) {
+                                    discoveredModels = discoverFlashModels(cleanKey)
+                                }
+                            }
+                            else -> {
+                                lastErrorMessage = "Dịch vụ AI gặp lỗi (HTTP $code)"
+                                logError(TAG, "Model $modelToTry trả lỗi HTTP $code.")
+                                if (discoveredModels == null) {
+                                    discoveredModels = discoverFlashModels(cleanKey)
+                                }
                             }
                         }
+                    } catch (e: Exception) {
+                        logError(TAG, "Lỗi kết nối khi gọi model $modelToTry: ${e.message}")
+                        lastErrorMessage = "Không thể kết nối tới dịch vụ AI. Vui lòng kiểm tra kết nối mạng."
+                        break
                     }
                 }
 
-                // 3. Dự phòng nếu API không có sẵn hoặc gặp lỗi kết nối
-                if (responseText.isNull_or_blank()) {
-                    responseText = sinhDeThiPhongPhuTheoChuDe(effectiveSubject, soLuongCau, docContent)
+                if (responseText.isNullOrBlank()) {
+                    return@withContext Result.failure(Exception(lastErrorMessage))
                 }
 
-                val safeResponseText = responseText ?: ""
-                val jsonStart = safeResponseText.indexOf('[')
-                val jsonEnd = safeResponseText.lastIndexOf(']')
-                val jsonClean = if (jsonStart != -1 && jsonEnd != -1 && jsonStart < jsonEnd) {
-                    safeResponseText.substring(jsonStart, jsonEnd + 1)
-                } else {
-                    sinhDeThiPhongPhuTheoChuDe(effectiveSubject, soLuongCau, docContent)
+                val safeText = responseText ?: ""
+                val jsonClean = cleanJsonFence(safeText)
+                if (jsonClean.isBlank()) {
+                    val previewStr = safeText.take(200)
+                    return@withContext Result.failure(Exception("Lỗi định dạng JSON từ AI: $previewStr"))
                 }
 
-                val jsonArray = JSONArray(jsonClean)
+                val jsonArray = try {
+                    JSONArray(jsonClean)
+                } catch (e: Exception) {
+                    val previewStr = safeText.take(200)
+                    return@withContext Result.failure(Exception("Lỗi định dạng JSON từ AI: $previewStr"))
+                }
+
+                if (jsonArray.length() == 0) {
+                    return@withContext Result.failure(Exception("AI không trả về câu hỏi nào trong phản hồi."))
+                }
+
                 val idDeThi = "EXAM_" + UUID.randomUUID().toString().substring(0, 8)
                 val thoiGianTao = System.currentTimeMillis()
 
@@ -218,74 +314,200 @@ class GeminiRepository(
         }
     }
 
-    private fun goiApiEndpoint(urlString: String, prompt: String): String {
+    suspend fun taoVaLuuDeThiMauOffline(
+        chuDe: String,
+        soLuongCau: Int,
+        docContent: String = ""
+    ): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val effectiveSubject = if (chuDe.isNotBlank()) chuDe else "Nội dung tệp tài liệu"
+                val displaySubject = "$effectiveSubject (Đề mẫu, không phải do AI tạo)"
+                val diemMoiCau = 10.0f / soLuongCau
+
+                val jsonClean = sinhDeThiPhongPhuTheoChuDe(displaySubject, soLuongCau, docContent)
+                val jsonArray = JSONArray(jsonClean)
+
+                val idDeThi = "EXAM_" + UUID.randomUUID().toString().substring(0, 8)
+                val thoiGianTao = System.currentTimeMillis()
+
+                val danhSachCauHoiChiTiet = mutableListOf<ChiTietCauHoiAi>()
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    danhSachCauHoiChiTiet.add(
+                        ChiTietCauHoiAi(
+                            idDeThi = idDeThi,
+                            noiDungCauHoi = obj.optString("noiDungCauHoi", "Câu hỏi ${i + 1}"),
+                            phuongAnA = obj.optString("phuongAnA", "Phương án A"),
+                            phuongAnB = obj.optString("phuongAnB", "Phương án B"),
+                            phuongAnC = obj.optString("phuongAnC", "Phương án C"),
+                            phuongAnD = obj.optString("phuongAnD", "Phương án D"),
+                            dapAnChinhXac = obj.optString("dapAnChinhXac", "A"),
+                            loiGiaiThich = obj.optString("loiGiaiThich", "Lời giải chi tiết cho câu hỏi ${i + 1}.")
+                        )
+                    )
+                }
+
+                val thongTinDeThi = LichSuDeThi(
+                    idDeThi = idDeThi,
+                    chuDeKiemsTra = displaySubject,
+                    tongSoCau = jsonArray.length(),
+                    diemMoiCau = diemMoiCau,
+                    thoiGianTao = thoiGianTao,
+                    diemDatDuoc = 0.0f
+                )
+
+                truyVanDeThiDao.luuTronBoDeThiAi(thongTinDeThi, danhSachCauHoiChiTiet)
+
+                Result.success(idDeThi)
+            } catch (e: Exception) {
+                logError(TAG, "Lỗi taoVaLuuDeThiMauOffline: ${e.message}", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    private fun goiApiGenerateContent(
+        modelName: String,
+        cleanKey: String,
+        promptText: String,
+        pdfBytes: ByteArray?
+    ): Pair<Int, String> {
+        val urlString = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent"
         val url = URL(urlString)
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+        connection.setRequestProperty("x-goog-api-key", cleanKey)
         connection.doOutput = true
         connection.connectTimeout = 30000
-        connection.readTimeout = 30000
+        connection.readTimeout = 120000
 
         val requestBody = JSONObject().apply {
             val genConfig = JSONObject().apply {
-                put("temperature", 0.7)
-                put("topK", 40)
-                put("topP", 0.95)
-                put("maxOutputTokens", 4096)
+                put("responseMimeType", "application/json")
+                put("maxOutputTokens", 8192)
             }
             put("generationConfig", genConfig)
 
-            val contents = JSONArray().apply {
-                val contentObj = JSONObject().apply {
-                    val parts = JSONArray().apply {
-                        val partObj = JSONObject().apply {
-                            put("text", prompt)
-                        }
-                        put(partObj)
-                    }
-                    put("parts", parts)
+            val parts = JSONArray()
+
+            if (pdfBytes != null && pdfBytes.isNotEmpty()) {
+                val base64Data = encodeBase64NoWrap(pdfBytes)
+                val inlineDataObj = JSONObject().apply {
+                    put("inlineData", JSONObject().apply {
+                        put("mimeType", "application/pdf")
+                        put("data", base64Data)
+                    })
                 }
-                put(contentObj)
+                parts.put(inlineDataObj)
             }
-            put("contents", contents)
+
+            val textPartObj = JSONObject().apply {
+                put("text", promptText)
+            }
+            parts.put(textPartObj)
+
+            val contentObj = JSONObject().apply {
+                put("parts", parts)
+            }
+            put("contents", JSONArray().apply { put(contentObj) })
         }
 
-        val writer = OutputStreamWriter(connection.outputStream, "UTF-8")
+        val writer = OutputStreamWriter(connection.outputStream, StandardCharsets.UTF_8)
         writer.write(requestBody.toString())
         writer.flush()
         writer.close()
 
         val responseCode = connection.responseCode
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            val reader = BufferedReader(InputStreamReader(connection.inputStream, "UTF-8"))
-            val responseBuilder = StringBuilder()
-            var line: String? = reader.readLine()
-            while (line != null) {
-                responseBuilder.append(line)
-                line = reader.readLine()
-            }
-            reader.close()
+        val responseText = if (responseCode == HttpURLConnection.HTTP_OK) {
+            connection.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+        } else {
+            connection.errorStream?.bufferedReader(StandardCharsets.UTF_8)?.use { it.readText() } ?: ""
+        }
 
-            val jsonResponse = JSONObject(responseBuilder.toString())
-            val candidates = jsonResponse.optJSONArray("candidates")
+        return Pair(responseCode, responseText)
+    }
+
+    private fun discoverFlashModels(cleanKey: String): List<String> {
+        val discovered = mutableListOf<String>()
+        try {
+            val url = URL("https://generativelanguage.googleapis.com/v1beta/models")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("x-goog-api-key", cleanKey)
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
+
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val responseText = conn.inputStream.bufferedReader(StandardCharsets.UTF_8).use { it.readText() }
+                val jsonRoot = JSONObject(responseText)
+                val modelsArray = jsonRoot.optJSONArray("models") ?: JSONArray()
+                for (i in 0 until modelsArray.length()) {
+                    val modelObj = modelsArray.getJSONObject(i)
+                    val rawName = modelObj.optString("name", "")
+                    val nameWithoutPrefix = rawName.removePrefix("models/")
+                    val lowerName = nameWithoutPrefix.lowercase()
+
+                    val methodsArray = modelObj.optJSONArray("supportedGenerationMethods")
+                    var supportsGenerateContent = false
+                    if (methodsArray != null) {
+                        for (j in 0 until methodsArray.length()) {
+                            if (methodsArray.optString(j) == "generateContent") {
+                                supportsGenerateContent = true
+                                break
+                            }
+                        }
+                    }
+
+                    val hasFlash = lowerName.contains("flash")
+                    val isExcluded = lowerName.contains("image") ||
+                            lowerName.contains("tts") ||
+                            lowerName.contains("live") ||
+                            lowerName.contains("embedding")
+
+                    if (supportsGenerateContent && hasFlash && !isExcluded && nameWithoutPrefix.isNotBlank()) {
+                        discovered.add(nameWithoutPrefix)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            logError(TAG, "Lỗi khi tự động dò model: ${e.message}")
+        }
+        return discovered
+    }
+
+    private fun extractTextFromGeminiResponse(responseJson: String): String {
+        try {
+            val jsonRoot = JSONObject(responseJson)
+            val candidates = jsonRoot.optJSONArray("candidates")
             if (candidates != null && candidates.length() > 0) {
                 val firstCandidate = candidates.getJSONObject(0)
                 val content = firstCandidate.optJSONObject("content")
                 val parts = content?.optJSONArray("parts")
                 if (parts != null && parts.length() > 0) {
-                    return parts.getJSONObject(0).optString("text", "")
+                    val sb = StringBuilder()
+                    for (i in 0 until parts.length()) {
+                        sb.append(parts.getJSONObject(i).optString("text", ""))
+                    }
+                    return sb.toString()
                 }
             }
-        } else {
-            val errorStream = connection.errorStream
-            val errorText = if (errorStream != null) {
-                BufferedReader(InputStreamReader(errorStream, "UTF-8")).use { it.readText() }
-            } else ""
-            logError(TAG, "Gemini API HTTP Error $responseCode: $errorText")
-            throw Exception("HTTP $responseCode: $errorText")
+        } catch (e: Exception) {
+            logError(TAG, "Lỗi bóc tách text từ phản hồi Gemini: ${e.message}")
         }
         return ""
+    }
+
+    private fun cleanJsonFence(rawText: String): String {
+        val cleanFences = rawText.replace("```json", "").replace("```", "").trim()
+        val jsonStart = cleanFences.indexOf('[')
+        val jsonEnd = cleanFences.lastIndexOf(']')
+        return if (jsonStart != -1 && jsonEnd != -1 && jsonStart < jsonEnd) {
+            cleanFences.substring(jsonStart, jsonEnd + 1)
+        } else {
+            ""
+        }
     }
 
     private fun sinhDeThiPhongPhuTheoChuDe(chuDe: String, soLuongCau: Int, docContent: String = ""): String {
@@ -305,7 +527,6 @@ class GeminiRepository(
             val sentences = if (rawSentences.isNotEmpty()) {
                 rawSentences
             } else {
-                // Tách đoạn thành các phần nhỏ 40-100 ký tự từ văn bản
                 cleanDoc.chunked(80).filter { it.length >= 10 }
             }
 
@@ -362,11 +583,15 @@ class GeminiRepository(
         return jsonArray.toString()
     }
 
-    private fun String?.isNull_or_blank(): Boolean {
-        return this == null || this.trim().isEmpty()
-    }
-
-    private data class SampleQ(val noiDung: String, val a: String, val b: String, val c: String, val d: String, val correct: String, val explain: String)
+    private data class SampleQ(
+        val noiDung: String,
+        val a: String,
+        val b: String,
+        val c: String,
+        val d: String,
+        val correct: String,
+        val explain: String
+    )
 
     private fun listEnglishQuestions(topic: String) = listOf(
         SampleQ("Choose the word whose underlined part is pronounced differently.", "A. school", "B. scholar", "C. chemistry", "D. children", "D", "Chữ 'ch' trong 'children' phát âm là /tʃ/, các từ còn lại là /k/."),
